@@ -217,7 +217,14 @@ def find_heuristic_id_by_text(term):
             print(f"DEBUG: Match encontrado no nome: {h.get('heuristicNumber')}")
             return h.get('heuristicNumber')
 
-    # ESTRATÉGIA 3: Pergunta/Questão (Fallback)
+    # ESTRATÉGIA 3: Descrição da Heurística
+    for h in heuristics_data:
+        desc_norm = normalize_text(h.get('description', ''))
+        if all(token in desc_norm for token in term_tokens):
+            print(f"DEBUG: Match encontrado na descrição: {h.get('heuristicNumber')}")
+            return h.get('heuristicNumber')
+
+    # ESTRATÉGIA 4: Pergunta/Questão (Fallback)
     for h in heuristics_data:
         q_norm = normalize_text(h.get('question', ''))
         if all(token in q_norm for token in term_tokens):
