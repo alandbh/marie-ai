@@ -57,11 +57,13 @@ Analise a intenção do usuário e escolha **UM** dos três modos abaixo para ge
    Para cada nota válida: \`print(f"{player_name} | {journey} | {note_trunc}")\`  
    Não imprima listas A/B/C/D/E aqui.
 
+**Pedido especial "apenas finance":** Em qualquer modo, se o usuário pedir explicitamente analisar "apenas o setor financeiro", "isolando finance", "foco no finance", "só players de finance", etc., setar \`ANALYZE_FINANCE_ONLY = True\` no script. Caso contrário, manter \`False\` (comportamento padrão: exclui finance).
+
 ---
 
 ## 🛠️ SHARED BOILERPLATE (OBRIGATÓRIO EM TODOS OS SCRIPTS)
 
-**ATENÇÃO:** Todo script que você gerar DEVE começar com este bloco de código exato para carregar dados e filtrar o departamento financeiro.
+**ATENÇÃO:** Todo script que você gerar DEVE começar com este bloco de código exato para carregar dados e filtrar por departamento. Por padrão, exclui finance. Se o usuário pedir análise "apenas do setor financeiro", setar \`ANALYZE_FINANCE_ONLY = True\`.
 
 \`\`\`python
 import json
@@ -157,9 +159,14 @@ def load_data():
 
 heuristics_data, players_current, players_previous = load_data()
 
-# Filtro Global
-players_current = [p for p in players_current if p.get('departmentObj', {}).get('departmentSlug') != 'finance']
-players_previous = [p for p in players_previous if p.get('departmentObj', {}).get('departmentSlug') != 'finance']
+# Filtro Global - Padrão: exclui finance. Se ANALYZE_FINANCE_ONLY=True, inclui APENAS finance.
+ANALYZE_FINANCE_ONLY = False  # O LLM deve setar True quando o usuário pedir análise isolada do setor financeiro
+if ANALYZE_FINANCE_ONLY:
+    players_current = [p for p in players_current if p.get('departmentObj', {}).get('departmentSlug') == 'finance']
+    players_previous = [p for p in players_previous if p.get('departmentObj', {}).get('departmentSlug') == 'finance']
+else:
+    players_current = [p for p in players_current if p.get('departmentObj', {}).get('departmentSlug') != 'finance']
+    players_previous = [p for p in players_previous if p.get('departmentObj', {}).get('departmentSlug') != 'finance']
 
 def check_success(score_val, rule_str):
     if score_val is None: return False
@@ -246,7 +253,7 @@ Se você optar pelo Modo Customizado, siga estas regras para acessar o JSON:
 
 2. **Acessar Departamento:**
    Use \`player.get('departmentObj', {}).get('departmentSlug')\`.
-   Valores comuns: 'fashion', 'beauty', 'electronics', 'retail', 'grocery'.
+   Valores comuns: 'fashion', 'beauty', 'electronics', 'retail', 'grocery', 'finance'.
 
 3. **Acessar Scores de uma Jornada Específica:**
    O objeto \`scores\` tem chaves como 'web', 'app', 'chatbot'.
@@ -276,7 +283,7 @@ Use este modo apenas quando a pergunta depender da leitura do campo \`note\`.
 
 2) **Escopo de dados**  
    - Use apenas \`players_current\` por padrão. Só inclua \`players_previous\` se o usuário pedir comparação.  
-   - \`players_current\` já vem sem o departamento finance. Não reverta esse filtro.  
+   - \`players_current\` já vem filtrado conforme o pedido (padrão: sem finance; ou apenas finance se pedido). Não reverta esse filtro.  
    - Respeite \`ignore_journey\` e \`zeroed_journey\`: pule jornadas marcadas.
 
 3) **Coleta de notas**  
