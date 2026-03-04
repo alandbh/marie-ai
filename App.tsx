@@ -709,7 +709,7 @@ Our lab only accepts scientists from R/GA. But if you really, really want to par
                             <span
                                 className={`font-normal ml-2 text-sm ${headerSubtleText}`}
                             >
-                                v0.1.1
+                                v0.1.2
                             </span>
                         </h1>
                     </div>

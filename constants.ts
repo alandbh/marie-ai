@@ -451,10 +451,11 @@ for h_id in cleaned_ids:
     qtd_fracasso = len(fail_curr)
     
     context_phrase = context_map.get(str(h_id), "possuem este recurso")
+    entities_label = "instituições financeiras" if ANALYZE_FINANCE_ONLY else "e-commerces"
     
     print(f"\\n### E. Descoberta (insight)")
-    print(f"**POSITIVA:**\\n{qtd_sucesso} de {total_eligible} e-commerces {context_phrase}.\\n")
-    print(f"**NEGATIVA:**\\n{qtd_fracasso} de {total_eligible} e-commerces não {context_phrase}.")
+    print(f"**POSITIVA:**\\n{qtd_sucesso} de {total_eligible} {entities_label} {context_phrase}.\\n")
+    print(f"**NEGATIVA:**\\n{qtd_fracasso} de {total_eligible} {entities_label} não {context_phrase}.")
 \`\`\`
 `;
 };
