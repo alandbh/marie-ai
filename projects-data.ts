@@ -44,6 +44,23 @@ const BASE_API_URL = getEnv("BASE_API_URL") || "https://baseurldemo";
 
 export const projects: Project[] = [
     {
+        slug: "finance5",
+        name: "Funfacts 5",
+        year: 2026,
+        previousSlug: "finance-4",
+        previousName: "Flashblack 4",
+        previousYear: 2025,
+        resultsApi: {
+            url: `${BASE_API_URL}/api/result?project=finance5`,
+            api_key: SHARED_API_KEY,
+        },
+        heuristicsApi: {
+            url: `${BASE_API_URL}/api/heuristics?project=finance5`,
+            api_key: SHARED_API_KEY,
+        },
+        allowedUsers: ["alanfuncionario@gmail.com"],
+    },
+    {
         slug: "retail6",
         name: "Flashblack 6",
         year: 2025,
