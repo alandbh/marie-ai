@@ -4,9 +4,9 @@ import {
     buildResponseFormatterPrompt,
     joinSections,
 } from "./prompt/common";
-import { buildFinanceInstruction } from "./prompt/finance";
+import { buildFinanceInstruction, buildFinancePythonPrelude } from "./prompt/finance";
 import { getProjectPromptExtension } from "./prompt/projects";
-import { buildRetailInstruction } from "./prompt/retail";
+import { buildRetailInstruction, buildRetailPythonPrelude } from "./prompt/retail";
 import { Project } from "./projects-data";
 
 export const GET_INITIAL_SYSTEM_INSTRUCTION = (project?: Project) => {
@@ -18,6 +18,15 @@ export const GET_INITIAL_SYSTEM_INSTRUCTION = (project?: Project) => {
             : buildRetailInstruction(ctx);
 
     return joinSections(buildCommonInstructionIntro(), profileInstruction);
+};
+
+export const GET_PYTHON_PRELUDE = (project?: Project) => {
+    const ctx = buildPromptContext(project);
+    const projectExtension = getProjectPromptExtension(project);
+
+    return ctx.projectType === "finance"
+        ? buildFinancePythonPrelude(ctx, projectExtension)
+        : buildRetailPythonPrelude(ctx);
 };
 
 export const RESPONSE_FORMATTER_PROMPT = buildResponseFormatterPrompt();

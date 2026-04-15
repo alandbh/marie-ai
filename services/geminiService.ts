@@ -5,10 +5,21 @@ import {
 } from "../constants";
 import { buildProjectPromptHint } from "../prompt/projects";
 import { Project } from "../projects-data";
+import { buildExecutablePythonScript } from "./pythonScriptBuilder";
 
-const PYTHON_ONLY_INSTRUCTION = ``;
+const PYTHON_ONLY_INSTRUCTION = `
+Regras críticas para gerar o script Python:
+- O runtime já injeta automaticamente o boilerplate compartilhado antes do seu código.
+- Responda APENAS com o corpo do script Python executável, sem markdown e sem texto extra.
+- Nunca reescreva imports, carregamento de dados ou helpers compartilhados.
+- Use somente bibliotecas padrão e os helpers já disponíveis no boilerplate.
+`;
 
-const DATASET_HINT = ``;
+const DATASET_HINT = `
+Dados já disponíveis no runtime:
+- heuristicas.json e resultados.json já serão carregados pelo boilerplate.
+- Para projects finance com registry canônico, o arquivo adicional do projeto também já será carregado pelo boilerplate.
+`;
 
 export class GeminiService {
     private client: GoogleGenAI;
@@ -17,34 +28,6 @@ export class GeminiService {
     constructor(apiKey: string) {
         this.apiKey = apiKey;
         this.client = new GoogleGenAI({ apiKey });
-    }
-
-    private sanitizePython(raw: string): string {
-        if (!raw) return "";
-        const fenceMatch = raw.match(/```(?:python)?\s*([\s\S]*?)```/i);
-        const code = fenceMatch ? fenceMatch[1] : raw;
-        return code
-            .replace(/```python/gi, "")
-            .replace(/```/g, "")
-            .trim();
-    }
-
-    private looksLikePython(script: string): boolean {
-        if (!script) return false;
-        const nonCommentLine = script
-            .split("\n")
-            .some((line) => line.trim() && !line.trim().startsWith("#"));
-        if (!nonCommentLine) return false;
-
-        const pythonSignals = [
-            /^(import|from)\s+\w+/m,
-            /^def\s+\w+\s*\(/m,
-            /^for\s+\w+\s+in\s+/m,
-            /json\.load/,
-            /players_current/,
-        ];
-
-        return pythonSignals.some((regex) => regex.test(script));
     }
 
     async generatePythonScript(
@@ -71,19 +54,16 @@ Lembrete: responda somente com código Python executável, sem markdown ou texto
                 },
             });
 
-            const script = this.sanitizePython(response.text || "");
-
-            if (!this.looksLikePython(script)) {
-                throw new Error(
-                    "O Gemini não retornou um script Python. Tente novamente com outra formulação.",
-                );
-            }
-
-            return script;
+            return buildExecutablePythonScript(
+                response.text || "",
+                project || undefined,
+            );
         } catch (error) {
             console.error("Error generating script:", error);
             throw new Error(
-                "Are you sure that this question has anything to do with this study? Seriously?",
+                error instanceof Error
+                    ? error.message
+                    : "Falha ao gerar o script Python desta análise.",
             );
         }
     }

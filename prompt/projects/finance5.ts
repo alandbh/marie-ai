@@ -68,12 +68,109 @@ const getEntrySearchCorpus = (entry: CanonicalHeuristicEntry) => {
 const extractHeuristicNumbers = (text: string) =>
     Array.from(text.matchAll(/\b\d+\.\d+\b/g), (match) => match[0]);
 
+const extractJourneyTokens = (text: string) => {
+    const promptTokens = new Set(tokenize(text));
+    const journeys = new Set<string>();
+
+    for (const entry of finance5CanonicalRegistry.canonicalHeuristics) {
+        for (const year of ["2025", "2026"] as const) {
+            for (const match of entry.matches[year]) {
+                const normalizedJourney = normalizeText(match.journey);
+                if (normalizedJourney && promptTokens.has(normalizedJourney)) {
+                    journeys.add(normalizedJourney);
+                }
+            }
+        }
+    }
+
+    return [...journeys];
+};
+
 const resolveFinance5Prompt = (
     userPrompt: string,
 ): CanonicalPromptResolution => {
     const promptNorm = normalizeText(userPrompt);
     const promptTokens = tokenize(userPrompt);
     const explicitNumbers = extractHeuristicNumbers(userPrompt);
+    const explicitJourneys = extractJourneyTokens(userPrompt);
+
+    if (explicitNumbers.length > 0) {
+        let numericCandidates =
+            finance5CanonicalRegistry.canonicalHeuristics.filter((entry) =>
+                (["2025", "2026"] as const).some((year) =>
+                    entry.matches[year].some((match) =>
+                        explicitNumbers.includes(match.heuristicNumber),
+                    ),
+                ),
+            );
+
+        if (explicitJourneys.length > 0 && numericCandidates.length > 0) {
+            const currentJourneyCandidates = numericCandidates.filter((entry) =>
+                entry.matches["2026"].some(
+                    (match) =>
+                        explicitNumbers.includes(match.heuristicNumber) &&
+                        explicitJourneys.includes(normalizeText(match.journey)),
+                ),
+            );
+
+            if (currentJourneyCandidates.length === 1) {
+                return {
+                    resolvedEntry: currentJourneyCandidates[0],
+                    candidates: [currentJourneyCandidates[0]],
+                    ambiguous: false,
+                };
+            }
+
+            if (currentJourneyCandidates.length > 1) {
+                numericCandidates = currentJourneyCandidates;
+            } else {
+                const anyYearJourneyCandidates = numericCandidates.filter(
+                    (entry) =>
+                        (["2025", "2026"] as const).some((year) =>
+                            entry.matches[year].some(
+                                (match) =>
+                                    explicitNumbers.includes(
+                                        match.heuristicNumber,
+                                    ) &&
+                                    explicitJourneys.includes(
+                                        normalizeText(match.journey),
+                                    ),
+                            ),
+                        ),
+                );
+
+                if (anyYearJourneyCandidates.length === 1) {
+                    return {
+                        resolvedEntry: anyYearJourneyCandidates[0],
+                        candidates: [anyYearJourneyCandidates[0]],
+                        ambiguous: false,
+                    };
+                }
+
+                if (anyYearJourneyCandidates.length > 1) {
+                    numericCandidates = anyYearJourneyCandidates;
+                }
+            }
+        }
+
+        if (numericCandidates.length === 1) {
+            return {
+                resolvedEntry: numericCandidates[0],
+                candidates: [numericCandidates[0]],
+                ambiguous: false,
+            };
+        }
+
+        if (
+            numericCandidates.length > 1 &&
+            /^\d+\.\d+$/.test(userPrompt.trim())
+        ) {
+            return {
+                candidates: numericCandidates,
+                ambiguous: true,
+            };
+        }
+    }
 
     const scored = finance5CanonicalRegistry.canonicalHeuristics
         .map((entry) => {
@@ -91,12 +188,29 @@ const resolveFinance5Prompt = (
                 if (previousHasNumber) score += 40;
             }
 
+            for (const journey of explicitJourneys) {
+                const currentHasJourney = entry.matches["2026"].some(
+                    (match) => normalizeText(match.journey) === journey,
+                );
+                const previousHasJourney = entry.matches["2025"].some(
+                    (match) => normalizeText(match.journey) === journey,
+                );
+                if (currentHasJourney) score += 40;
+                if (previousHasJourney) score += 20;
+            }
+
             const exactLabel = normalizeText(entry.label);
             if (exactLabel && promptNorm.includes(exactLabel)) score += 60;
             if (promptNorm.includes(normalizeText(entry.canonicalId))) score += 40;
 
             for (const year of ["2025", "2026"] as const) {
                 for (const match of entry.matches[year]) {
+                    if (
+                        explicitNumbers.includes(match.heuristicNumber) &&
+                        explicitJourneys.includes(normalizeText(match.journey))
+                    ) {
+                        score += year === "2026" ? 160 : 80;
+                    }
                     const normalizedTitle = normalizeText(match.title);
                     if (normalizedTitle && promptNorm.includes(normalizedTitle)) {
                         score += 100;

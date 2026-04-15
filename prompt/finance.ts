@@ -1,7 +1,9 @@
 import {
     PromptBuildContext,
     PromptProjectExtension,
+    SharedBoilerplateOptions,
     buildSharedBoilerplate,
+    buildSharedBoilerplateCode,
     joinSections,
 } from "./common";
 
@@ -152,6 +154,18 @@ def get_registry_search_blob(entry):
             parts.append(match.get('journey', ''))
     return normalize_text(" ".join(parts))
 
+def get_explicit_journeys(term):
+    term_norm = normalize_text(term)
+    tokens = set(re.findall(r'\\b[a-z_]+\\b', term_norm))
+    journeys = set()
+    for entry in canonical_heuristics:
+        for year in ('2025', '2026'):
+            for match in get_registry_matches(entry, year):
+                journey = normalize_text(match.get('journey', ''))
+                if journey and journey in tokens:
+                    journeys.add(journey)
+    return journeys
+
 def resolve_heuristic_ref(term):
     if not USE_PROJECT_CANONICAL or not canonical_heuristics:
         return None
@@ -165,14 +179,61 @@ def resolve_heuristic_ref(term):
         return exact_entry.get('canonicalId')
 
     explicit_numbers = re.findall(r'\\\\b\\\\d+\\\\.\\\\d+\\\\b', term_str)
+    explicit_journeys = get_explicit_journeys(term_str)
     if explicit_numbers:
         numeric_candidates = []
         for entry in canonical_heuristics:
-            all_numbers = []
+            has_number = False
             for year in ('2025', '2026'):
-                all_numbers.extend([str(match.get('heuristicNumber')) for match in get_registry_matches(entry, year)])
-            if any(number in all_numbers for number in explicit_numbers):
+                for match in get_registry_matches(entry, year):
+                    if str(match.get('heuristicNumber')) in explicit_numbers:
+                        has_number = True
+                        break
+                if has_number:
+                    break
+            if has_number:
                 numeric_candidates.append(entry)
+
+        if explicit_journeys and numeric_candidates:
+            current_journey_candidates = []
+            current_year = str(CURRENT_YEAR)
+            for entry in numeric_candidates:
+                matches = [
+                    match
+                    for match in get_registry_matches(entry, current_year)
+                    if str(match.get('heuristicNumber')) in explicit_numbers
+                ]
+                if any(
+                    normalize_text(match.get('journey', '')) in explicit_journeys
+                    for match in matches
+                ):
+                    current_journey_candidates.append(entry)
+
+            if len(current_journey_candidates) == 1:
+                return current_journey_candidates[0].get('canonicalId')
+            if len(current_journey_candidates) > 1:
+                numeric_candidates = current_journey_candidates
+            else:
+                any_year_journey_candidates = []
+                for entry in numeric_candidates:
+                    matches = []
+                    for year in ('2025', '2026'):
+                        matches.extend(
+                            [
+                                match
+                                for match in get_registry_matches(entry, year)
+                                if str(match.get('heuristicNumber')) in explicit_numbers
+                            ]
+                        )
+                    if any(
+                        normalize_text(match.get('journey', '')) in explicit_journeys
+                        for match in matches
+                    ):
+                        any_year_journey_candidates.append(entry)
+                if len(any_year_journey_candidates) == 1:
+                    return any_year_journey_candidates[0].get('canonicalId')
+                if len(any_year_journey_candidates) > 1:
+                    numeric_candidates = any_year_journey_candidates
 
         if len(numeric_candidates) == 1:
             return numeric_candidates[0].get('canonicalId')
@@ -196,6 +257,12 @@ def resolve_heuristic_ref(term):
             score += 20
         for year in ('2025', '2026'):
             for match in get_registry_matches(entry, year):
+                match_number = str(match.get('heuristicNumber'))
+                match_journey = normalize_text(match.get('journey', ''))
+                if match_number in explicit_numbers:
+                    score += 80 if year == str(CURRENT_YEAR) else 40
+                    if explicit_journeys and match_journey in explicit_journeys:
+                        score += 160 if year == str(CURRENT_YEAR) else 80
                 title_norm = normalize_text(match.get('title', ''))
                 if title_norm and title_norm in term_norm:
                     score += 40
@@ -352,6 +419,23 @@ def find_heuristic_id_by_text(term):
     return None
 `.trim();
 
+const getFinanceBoilerplateOptions = (
+    extension?: PromptProjectExtension,
+): SharedBoilerplateOptions => ({
+    contextMap: financeContextMap,
+    additionalImports: "import re",
+    runtimeConfig: buildFinanceRuntimeConfig(extension),
+    additionalLoaders: financeAdditionalLoaders,
+    postLoadSetup: financePostLoadSetup,
+    playerFilterBlock: financePlayerFilterBlock,
+    helperFunctions: buildFinanceHelpers(),
+});
+
+export const buildFinancePythonPrelude = (
+    ctx: PromptBuildContext,
+    extension?: PromptProjectExtension,
+) => buildSharedBoilerplateCode(ctx, getFinanceBoilerplateOptions(extension));
+
 const buildFinanceMode2Guidance = (extension?: PromptProjectExtension) =>
     `
 ## 🧪 DIRETRIZES PARA O "MODO 2: CONSULTA CUSTOMIZADA"
@@ -504,15 +588,7 @@ export const buildFinanceInstruction = (
 ) =>
     joinSections(
         buildFinanceRouter(extension),
-        buildSharedBoilerplate(ctx, {
-            contextMap: financeContextMap,
-            additionalImports: "import re",
-            runtimeConfig: buildFinanceRuntimeConfig(extension),
-            additionalLoaders: financeAdditionalLoaders,
-            postLoadSetup: financePostLoadSetup,
-            playerFilterBlock: financePlayerFilterBlock,
-            helperFunctions: buildFinanceHelpers(),
-        }),
+        buildSharedBoilerplate(ctx, getFinanceBoilerplateOptions(extension)),
         buildFinanceMode2Guidance(extension),
         buildFinanceMode3Guidance(ctx, extension),
         buildFinanceTemplate(ctx, extension),

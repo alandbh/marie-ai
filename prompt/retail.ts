@@ -1,6 +1,8 @@
 import {
     PromptBuildContext,
+    SharedBoilerplateOptions,
     buildSharedBoilerplate,
+    buildSharedBoilerplateCode,
     joinSections,
 } from "./common";
 
@@ -70,7 +72,7 @@ Analise a intenção do usuário e escolha **UM** dos três modos abaixo para ge
 - Perguntas de contagem específica (ex: "quantos players...", "quais players...").
 - Cruzamento de dados complexos.
 **Ação:** Escreva um script Python que:
-1. Inclua OBRIGATORIAMENTE o "SHARED BOILERPLATE".
+1. Use os helpers do "SHARED BOILERPLATE" que já será injetado pelo runtime.
 2. Use \`find_heuristic_id_by_text("palavra_chave")\` para encontrar IDs.
 3. Implemente a lógica de filtro customizada.
 4. Imprima o resultado em Markdown simples.
@@ -81,7 +83,7 @@ Analise a intenção do usuário e escolha **UM** dos três modos abaixo para ge
 - Perguntas que citam explicitamente "nota", "evidência", "qualitativo", ou pedem exemplos/texto de jornada.
 - Perguntas sobre um único tema/heurística, sem necessidade de contagem matemática.
 **Ação:** Escreva um script Python que:
-1. Inclua OBRIGATORIAMENTE o "SHARED BOILERPLATE".
+1. Use os helpers do "SHARED BOILERPLATE" que já será injetado pelo runtime.
 2. Encontre a heurística com \`find_heuristic_id_by_text\`.
 3. Considere apenas o ano corrente (\`players_current\`) a menos que o usuário peça comparação histórica.
 4. Respeite \`ignore_journey\` e \`zeroed_journey\`.
@@ -142,49 +144,7 @@ def find_heuristic_id_by_text(term):
 
     print("DEBUG: Nenhum match encontrado.")
     return None
-`.trim();
 
-const buildRetailMode2Guidance = () => `
-## 🧪 DIRETRIZES PARA O "MODO 2: CONSULTA CUSTOMIZADA"
-
-1. **Encontrar o ID da heurística**
-   Use SEMPRE \`heuristic_ref = find_heuristic_id_by_text("termo_curto")\`.
-
-2. **Acessar scores de uma jornada específica**
-   O objeto \`scores\` tem chaves como 'web', 'app', 'chatbot'.
-   Exemplo:
-   \`\`\`python
-   journey_data = player['scores'].get('app', {})
-   score_obj = journey_data.get(f"h_{heuristic_ref}")
-   score_val = score_obj.get('scoreValue') if score_obj else None
-   \`\`\`
-
-3. **Output**
-   Imprima um título claro com a contagem.
-`.trim();
-
-const buildRetailMode3Guidance = (ctx: PromptBuildContext) => `
-## 🎯 DIRETRIZES PARA O "MODO 3: CONSULTA QUALITATIVA"
-
-1. **Identificação da heurística**
-   - Se o usuário der o ID, use direto.
-   - Caso contrário, use \`find_heuristic_id_by_text("termo_curto")\`.
-
-2. **Coleta de notas**
-   - Para cada player, percorra as jornadas que tenham \`h_{heuristic_ref}\` com nota não vazia.
-   - Trunque a nota com:
-     \`note_clean = " ".join(str(note or "").replace("|", "/").split())[:280]\`
-
-3. **Output**
-   \`print(f"### Notas Qualitativas {heuristic_ref} (${ctx.currentYear})")\`
-   \`print("PLAYER | JOURNEY | NOTE")\`
-   \`print("--- | --- | ---")\`
-`.trim();
-
-const buildRetailTemplate = (ctx: PromptBuildContext) => `
-## 📜 TEMPLATE PADRÃO
-
-\`\`\`python
 def get_scores_for_heuristic(player, heuristic_ref):
     scores_found = []
     h_key = f"h_{heuristic_ref}"
@@ -212,13 +172,6 @@ def get_heuristic_metadata(heuristic_ref):
         if str(heuristic.get('heuristicNumber')) == str_id:
             return heuristic
     return None
-
-def print_player_list(title, player_names):
-    clean_names = [str(name) for name in player_names if name is not None]
-    clean_names.sort()
-    print(f"\\n### {title} [{len(clean_names)}]")
-    for name in clean_names:
-        print(f"- {name}")
 
 def player_has_heuristic_object(player, heuristic_ref):
     h_key = f"h_{heuristic_ref}"
@@ -262,6 +215,64 @@ def is_player_eligible(player, heuristic_ref):
     if str_id == '5.29':
         return dept == 'beauty-and-drugstore'
     return True
+`.trim();
+
+const getRetailBoilerplateOptions = (): SharedBoilerplateOptions => ({
+    contextMap: retailContextMap,
+    playerFilterBlock: retailPlayerFilterBlock,
+    helperFunctions: buildRetailHelpers(),
+});
+
+export const buildRetailPythonPrelude = (ctx: PromptBuildContext) =>
+    buildSharedBoilerplateCode(ctx, getRetailBoilerplateOptions());
+
+const buildRetailMode2Guidance = () => `
+## 🧪 DIRETRIZES PARA O "MODO 2: CONSULTA CUSTOMIZADA"
+
+1. **Encontrar o ID da heurística**
+   Use SEMPRE \`heuristic_ref = find_heuristic_id_by_text("termo_curto")\`.
+
+2. **Acessar scores de uma jornada específica**
+   O objeto \`scores\` tem chaves como 'web', 'app', 'chatbot'.
+   Exemplo:
+   \`\`\`python
+   journey_data = player['scores'].get('app', {})
+   score_obj = journey_data.get(f"h_{heuristic_ref}")
+   score_val = score_obj.get('scoreValue') if score_obj else None
+   \`\`\`
+
+3. **Output**
+   Imprima um título claro com a contagem.
+`.trim();
+
+const buildRetailMode3Guidance = (ctx: PromptBuildContext) => `
+## 🎯 DIRETRIZES PARA O "MODO 3: CONSULTA QUALITATIVA"
+
+1. **Identificação da heurística**
+   - Se o usuário der o ID, use direto.
+   - Caso contrário, use \`find_heuristic_id_by_text("termo_curto")\`.
+
+2. **Coleta de notas**
+   - Para cada player, percorra as jornadas que tenham \`h_{heuristic_ref}\` com nota não vazia.
+   - Trunque a nota com:
+     \`note_clean = " ".join(str(note or "").replace("|", "/").split())[:280]\`
+
+3. **Output**
+   \`print(f"### Notas Qualitativas {heuristic_ref} (${ctx.currentYear})")\`
+   \`print("PLAYER | JOURNEY | NOTE")\`
+   \`print("--- | --- | ---")\`
+`.trim();
+
+const buildRetailTemplate = (ctx: PromptBuildContext) => `
+## 📜 TEMPLATE PADRÃO
+
+\`\`\`python
+def print_player_list(title, player_names):
+    clean_names = [str(name) for name in player_names if name is not None]
+    clean_names.sort()
+    print(f"\\n### {title} [{len(clean_names)}]")
+    for name in clean_names:
+        print(f"- {name}")
 
 target_ids = [INSERT_HEURISTIC_IDS_OR_FINDER_CALLS_HERE]
 
@@ -347,11 +358,7 @@ for heuristic_ref in cleaned_ids:
 export const buildRetailInstruction = (ctx: PromptBuildContext) =>
     joinSections(
         buildRetailRouter(),
-        buildSharedBoilerplate(ctx, {
-            contextMap: retailContextMap,
-            playerFilterBlock: retailPlayerFilterBlock,
-            helperFunctions: buildRetailHelpers(),
-        }),
+        buildSharedBoilerplate(ctx, getRetailBoilerplateOptions()),
         buildRetailMode2Guidance(),
         buildRetailMode3Guidance(ctx),
         buildRetailTemplate(ctx),

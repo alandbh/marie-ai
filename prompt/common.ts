@@ -18,7 +18,7 @@ export interface PromptProjectExtension {
     templateNotes?: string;
 }
 
-interface SharedBoilerplateOptions {
+export interface SharedBoilerplateOptions {
     contextMap: Record<string, string>;
     additionalImports?: string;
     runtimeConfig?: string;
@@ -53,19 +53,21 @@ Seu nome foi inspirado na brilhante cientista Marie Curie (1867-1934), que foi u
 
 Seu objetivo é EXCLUSIVAMENTE escrever um script Python que extraia dados para responder a pergunta.
 
+Contrato de saída obrigatório:
+- O runtime da aplicação injeta automaticamente o SHARED BOILERPLATE antes do seu código.
+- Responda apenas com o CORPO do script, pronto para ser anexado após esse boilerplate.
+- Nunca reescreva imports base nem helpers compartilhados como \`normalize_text\`, \`load_data\`, \`check_success\`, \`safe_get_name\`, \`find_heuristic_id_by_text\`, \`get_scores_for_heuristic\`, \`get_heuristic_metadata\` ou \`player_succeeds\`.
+
 ---
 `.trim();
 
 const toPythonDict = (value: Record<string, string>) =>
     JSON.stringify(value, null, 4);
 
-export const buildSharedBoilerplate = (
+export const buildSharedBoilerplateCode = (
     ctx: PromptBuildContext,
     options: SharedBoilerplateOptions,
 ) => `
-## 🛠️ SHARED BOILERPLATE (OBRIGATÓRIO EM TODOS OS SCRIPTS)
-
-\`\`\`python
 import json
 import unicodedata
 ${options.additionalImports || ""}
@@ -154,6 +156,16 @@ def safe_get_name(player):
     return str(player.get('name') or "Unknown").strip()
 
 ${options.helperFunctions || ""}
+`.trim();
+
+export const buildSharedBoilerplate = (
+    ctx: PromptBuildContext,
+    options: SharedBoilerplateOptions,
+) => `
+## 🛠️ SHARED BOILERPLATE (INJETADO AUTOMATICAMENTE PELO RUNTIME)
+
+\`\`\`python
+${buildSharedBoilerplateCode(ctx, options)}
 \`\`\`
 `.trim();
 
@@ -169,19 +181,24 @@ Abaixo está o output da execução do código Python.
    - Formate as listas com bullet points e contagem no título. Ex: "**B. Players que Falharam (2025) [23]**"
    - Destaque os Insights (Positiva/Negativa).
 
-3. **SE O OUTPUT FOR DO MODO CUSTOMIZADO (Listas Simples):**
+3. **SE O OUTPUT CONTIVER ERRO DE EXECUÇÃO PYTHON:**
+   - Se houver \`CRITICAL PYTHON ERROR\`, \`Traceback\`, \`NameError\`, \`SyntaxError\` ou erro equivalente, trate como falha interna do script gerado.
+   - Não diga que faltaram dados ou que os filtros não encontraram resultado.
+   - Explique que a geração/execução do script falhou e mostre um resumo curto do erro técnico.
+
+4. **SE O OUTPUT FOR DO MODO CUSTOMIZADO (Listas Simples):**
    - Apenas formate o markdown de forma limpa e legível.
    - Respeite os títulos e contagens gerados pelo Python.
    - Não tente forçar o formato A/B/C/D se ele não existir no output.
-   - **IMPORTANTE:** Se o Output contiver mensagens de erro ou estiver vazio, explique ao usuário que não encontrou dados para os filtros aplicados, sugerindo tentar termos mais genéricos.
+   - Se o output estiver realmente vazio ou só indicar ausência de dados, explique que não encontrou dados para os filtros aplicados, sugerindo tentar termos mais genéricos.
 
-4. **SE O OUTPUT FOR DO MODO QUALITATIVO (Notas por player/jornada):**
+5. **SE O OUTPUT FOR DO MODO QUALITATIVO (Notas por player/jornada):**
    - Interprete o bloco "Notas Qualitativas" e resuma quem atende ou não ao pedido do usuário com base no texto das notas.
    - Mantenha o formato em Markdown claro (ex.: lista de players com jornadas e o achado principal).
    - Não force A/B/C/D/E. Se houver incerteza ou nota ambígua, mencione explicitamente.
    - Se não houver notas, informe que não há evidências para o filtro aplicado.
 
-5. **FINALIZAÇÃO:**
+6. **FINALIZAÇÃO:**
    Ao final de qualquer resposta, adicione uma linha horizontal (\`---\`) e a mensagem em itálico:
    *Para analisar outra heurística, clique no botão 'Iniciar Nova Análise' abaixo.*
 

@@ -4,6 +4,7 @@ import {
 } from "../constants";
 import { buildProjectPromptHint } from "../prompt/projects";
 import { Project } from "../projects-data";
+import { buildExecutablePythonScript } from "./pythonScriptBuilder";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -19,17 +20,18 @@ interface OllamaConfig {
 
 const PYTHON_ONLY_INSTRUCTION = `
 Regras críticas para gerar o script Python:
-- Responda APENAS com código Python executável. Não use markdown e não explique.
+- O runtime já injeta automaticamente o boilerplate compartilhado antes do seu código.
+- Responda APENAS com o corpo do script Python executável. Não use markdown e não explique.
 - Use somente bibliotecas padrão (json, unicodedata, math, re). Não use requests/pandas/etc.
 - Não tente importar ou instalar pacotes externos.
-- Considere que heuristicas.json e resultados.json já estão no filesystem e foram carregados pelo boilerplate do sistema.
+- Nunca reescreva imports, carregamento de dados ou helpers compartilhados.
 `;
 
 const DATASET_HINT = `
 Estrutura esperada dos arquivos disponíveis:
 - heuristicas.json: pode ser {"data": {"heuristics": [...]}} ou {"heuristics": [...]} ou uma lista direta.
 - resultados.json: pode ser {"editions": {"year_2025": {"players": [...]}, ...}} ou {"players": [...]} ou {"data": [...]}.
-Use SEMPRE o boilerplate fornecido (carrega dados, filtra finance) antes da lógica pedida.
+O runtime já vai injetar o boilerplate completo antes da lógica pedida.
 `;
 
 const getEnvValue = (key: string): string => {
@@ -66,16 +68,6 @@ export class OllamaService {
 
         this.baseUrl = config?.baseUrl || envBase;
         this.model = config?.model || envModel;
-    }
-
-    private sanitizePython(raw: string): string {
-        if (!raw) return "";
-        const fenceMatch = raw.match(/```(?:python)?\s*([\s\S]*?)```/i);
-        const code = fenceMatch ? fenceMatch[1] : raw;
-        return code
-            .replace(/```python/gi, "")
-            .replace(/```/g, "")
-            .trim();
     }
 
     private async chat(
@@ -153,7 +145,10 @@ Lembrete: responda somente com código Python executável, sem markdown ou texto
             0.1,
         );
 
-        return this.sanitizePython(responseText || "");
+        return buildExecutablePythonScript(
+            responseText || "",
+            project || undefined,
+        );
     }
 
     async generateNaturalLanguageResponse(

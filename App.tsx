@@ -43,6 +43,37 @@ const MODEL_OPTIONS: { value: ModelProvider; label: string }[] = [
     { value: "ollama", label: "Ollama/Gemma" },
 ];
 
+const hasPythonExecutionError = (output: string) =>
+    /CRITICAL PYTHON ERROR|Traceback|NameError:|SyntaxError:|TypeError:|AttributeError:/i.test(
+        output || "",
+    );
+
+const formatPythonExecutionError = (output: string) => {
+    const lines = (output || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+    const summary =
+        lines.find((line) =>
+            /CRITICAL PYTHON ERROR|Traceback|NameError:|SyntaxError:|TypeError:|AttributeError:/i.test(
+                line,
+            ),
+        ) || "CRITICAL PYTHON ERROR: script execution failed.";
+
+    return [
+        "O script gerado para esta consulta falhou durante a execução.",
+        "",
+        "```text",
+        summary,
+        "```",
+        "",
+        "Tente repetir a pergunta com mais contexto, por exemplo usando `número + jornada` nos estudos finance.",
+        "",
+        "---",
+        "*Para analisar outra heurística, clique no botão 'Iniciar Nova Análise' abaixo.*",
+    ].join("\n");
+};
+
 // Helper para ler API Key em qualquer ambiente (Vite ou Node)
 const getEnvApiKey = () => {
     try {
@@ -631,11 +662,12 @@ Our lab only accepts scientists from R/GA. But if you really, really want to par
             }
 
             setProcessingStep(ProcessingStep.GENERATING_RESPONSE);
-            const finalResponse =
-                await activeService.generateNaturalLanguageResponse(
-                    userMsg.content,
-                    pythonOutput,
-                );
+            const finalResponse = hasPythonExecutionError(pythonOutput)
+                ? formatPythonExecutionError(pythonOutput)
+                : await activeService.generateNaturalLanguageResponse(
+                      userMsg.content,
+                      pythonOutput,
+                  );
 
             setMessages((prev) => [
                 ...prev,
