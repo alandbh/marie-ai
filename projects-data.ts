@@ -2,6 +2,7 @@ export interface Project {
     slug: string;
     name: string;
     year: number;
+    type: string;
     previousSlug: string;
     previousName: string;
     previousYear: number;
@@ -45,8 +46,9 @@ const BASE_API_URL = getEnv("BASE_API_URL") || "https://baseurldemo";
 export const projects: Project[] = [
     {
         slug: "finance5",
-        name: "Funfacts 5",
+        name: "Finfacts 5",
         year: 2026,
+        type: "finance",
         previousSlug: "finance-4",
         previousName: "Flashblack 4",
         previousYear: 2025,
@@ -64,6 +66,7 @@ export const projects: Project[] = [
         slug: "retail6",
         name: "Flashblack 6",
         year: 2025,
+        type: "retail",
         previousSlug: "retail-5",
         previousName: "Flashblack 5",
         previousYear: 2024,
@@ -81,6 +84,7 @@ export const projects: Project[] = [
         slug: "rspla2",
         name: "Garage SPLA 2",
         year: 2025,
+        type: "retail",
         previousSlug: "latam-1",
         previousName: "Garage SPLA 1",
         previousYear: 2024,
@@ -97,6 +101,7 @@ export const projects: Project[] = [
         slug: "retail-emea-1",
         name: "Garage EMEA 1",
         year: 2025,
+        type: "retail",
         previousSlug: null,
         previousName: null,
         previousYear: null,

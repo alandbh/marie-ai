@@ -16,6 +16,7 @@ import {
 } from "./services/firebaseClient";
 import { AuthUser, Message, AppState, ProcessingStep } from "./types";
 import { projects, Project } from "./projects-data";
+import { finance5CanonicalRegistry } from "./finance5CanonicalRegistry";
 import { ChevronDown, Loader2, ArrowLeft, XCircle, LogOut } from "lucide-react";
 import Home from "./pages/Home";
 import ProjectsPage from "./pages/Projects";
@@ -604,6 +605,12 @@ Our lab only accepts scientists from R/GA. But if you really, really want to par
                 "resultados.json",
                 JSON.stringify(state.resultadosContent),
             );
+            if (state.selectedProject?.slug === "finance5") {
+                pyodide.FS.writeFile(
+                    "finance5_canonical_heuristics.json",
+                    JSON.stringify(finance5CanonicalRegistry),
+                );
+            }
 
             let pythonOutput = "";
             try {

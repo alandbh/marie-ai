@@ -3,6 +3,7 @@ import {
     GET_INITIAL_SYSTEM_INSTRUCTION,
     RESPONSE_FORMATTER_PROMPT,
 } from "../constants";
+import { buildProjectPromptHint } from "../prompt/projects";
 import { Project } from "../projects-data";
 
 const PYTHON_ONLY_INSTRUCTION = ``;
@@ -52,9 +53,13 @@ export class GeminiService {
     ): Promise<string> {
         try {
             const systemInstruction = `${GET_INITIAL_SYSTEM_INSTRUCTION(project || undefined)}\n\n${PYTHON_ONLY_INSTRUCTION}`;
+            const projectHint = buildProjectPromptHint(
+                project || undefined,
+                userPrompt,
+            );
             const userMessage = `${userPrompt}
 
-${DATASET_HINT}
+${projectHint ? `${projectHint}\n\n` : ""}${DATASET_HINT}
 Lembrete: responda somente com código Python executável, sem markdown ou texto extra.`;
 
             const response = await this.client.models.generateContent({

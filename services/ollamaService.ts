@@ -2,6 +2,7 @@ import {
     GET_INITIAL_SYSTEM_INSTRUCTION,
     RESPONSE_FORMATTER_PROMPT,
 } from "../constants";
+import { buildProjectPromptHint } from "../prompt/projects";
 import { Project } from "../projects-data";
 
 type ChatRole = "system" | "user" | "assistant";
@@ -133,10 +134,14 @@ export class OllamaService {
         const systemInstruction = GET_INITIAL_SYSTEM_INSTRUCTION(
             project || undefined,
         );
+        const projectHint = buildProjectPromptHint(
+            project || undefined,
+            userPrompt,
+        );
 
         const userMessage = `${userPrompt}
 
-${DATASET_HINT}
+${projectHint ? `${projectHint}\n\n` : ""}${DATASET_HINT}
 Lembrete: responda somente com código Python executável, sem markdown ou texto extra.`;
 
         const responseText = await this.chat(
