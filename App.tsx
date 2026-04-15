@@ -48,7 +48,10 @@ const hasPythonExecutionError = (output: string) =>
         output || "",
     );
 
-const formatPythonExecutionError = (output: string) => {
+const formatPythonExecutionError = (
+    output: string,
+    projectType?: string | null,
+) => {
     const lines = (output || "")
         .split("\n")
         .map((line) => line.trim())
@@ -59,6 +62,10 @@ const formatPythonExecutionError = (output: string) => {
                 line,
             ),
         ) || "CRITICAL PYTHON ERROR: script execution failed.";
+    const retryHint =
+        projectType === "finance"
+            ? "Tente repetir a pergunta com mais contexto, por exemplo usando `número + jornada` nos estudos finance."
+            : "Tente repetir a pergunta usando o número da heurística ou um tema mais próximo do título ou contexto esperado.";
 
     return [
         "O script gerado para esta consulta falhou durante a execução.",
@@ -67,7 +74,7 @@ const formatPythonExecutionError = (output: string) => {
         summary,
         "```",
         "",
-        "Tente repetir a pergunta com mais contexto, por exemplo usando `número + jornada` nos estudos finance.",
+        retryHint,
         "",
         "---",
         "*Para analisar outra heurística, clique no botão 'Iniciar Nova Análise' abaixo.*",
@@ -663,7 +670,10 @@ Our lab only accepts scientists from R/GA. But if you really, really want to par
 
             setProcessingStep(ProcessingStep.GENERATING_RESPONSE);
             const finalResponse = hasPythonExecutionError(pythonOutput)
-                ? formatPythonExecutionError(pythonOutput)
+                ? formatPythonExecutionError(
+                      pythonOutput,
+                      state.selectedProject?.type,
+                  )
                 : await activeService.generateNaturalLanguageResponse(
                       userMsg.content,
                       pythonOutput,

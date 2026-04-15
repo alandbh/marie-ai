@@ -104,6 +104,13 @@ else:
 `.trim();
 
 const buildRetailHelpers = () => `
+def print_player_list(title, player_names):
+    clean_names = [str(name) for name in player_names if name is not None]
+    clean_names.sort()
+    print(f"\\n### {title} [{len(clean_names)}]")
+    for name in clean_names:
+        print(f"- {name}")
+
 def find_heuristic_id_by_text(term):
     if not term:
         return None
@@ -267,13 +274,6 @@ const buildRetailTemplate = (ctx: PromptBuildContext) => `
 ## 📜 TEMPLATE PADRÃO
 
 \`\`\`python
-def print_player_list(title, player_names):
-    clean_names = [str(name) for name in player_names if name is not None]
-    clean_names.sort()
-    print(f"\\n### {title} [{len(clean_names)}]")
-    for name in clean_names:
-        print(f"- {name}")
-
 target_ids = [INSERT_HEURISTIC_IDS_OR_FINDER_CALLS_HERE]
 
 cleaned_ids = []
